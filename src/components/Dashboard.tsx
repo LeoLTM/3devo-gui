@@ -1,6 +1,7 @@
 import { DataRow, formatTemperature, formatDiameter, formatPercentage, formatRPM, getStatusDisplay, isFaultActive } from "@/types/extruder";
 import { Card } from "@/components/ui/card";
 import { useStore } from "@/store";
+import { TinyChart } from "@/components/TinyChart";
 
 export function Dashboard() {
   const currentData = useStore((state) => state.currentData);
@@ -76,6 +77,7 @@ export function Dashboard() {
               actualTemp={currentData[`temp${heater}` as keyof DataRow] as number}
               dutyCycle={currentData[`dc${heater}` as keyof DataRow] as number}
               errors={currentData[`err${heater}` as keyof DataRow] as number}
+              historicalData={historicalData}
             />
           ))}
         </div>
@@ -95,7 +97,15 @@ export function Dashboard() {
           </div>
           <div>
             <div className="text-sm text-gray-600">Current</div>
-            <div className="text-xl font-bold">{currentData.ext_cur.toFixed(0)} mA</div>
+            <div className="text-xl font-bold">
+              {currentData.ext_cur.toFixed(0)} mA
+              <TinyChart
+                data={historicalData}
+                field="ext_cur"
+                color="#6b7280"
+                className="ml-2 hidden sm:inline-block"
+              />
+            </div>
           </div>
           <div>
             <div className="text-sm text-gray-600">PWM</div>
@@ -107,7 +117,15 @@ export function Dashboard() {
           </div>
           <div>
             <div className="text-sm text-gray-600">Puller</div>
-            <div className="text-xl font-bold">{currentData.puller} ticks</div>
+            <div className="text-xl font-bold">
+              {currentData.puller} ticks
+              <TinyChart
+                data={historicalData}
+                field="puller"
+                color="#6b7280"
+                className="ml-2 hidden sm:inline-block"
+              />
+            </div>
           </div>
         </div>
       </Card>
@@ -118,7 +136,15 @@ export function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <div className="text-sm text-gray-600">Diameter (Instant)</div>
-            <div className="text-2xl font-bold text-purple-600">{formatDiameter(currentData.ft)}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {formatDiameter(currentData.ft)}
+              <TinyChart
+                data={historicalData}
+                field="ft"
+                color="#9333ea"
+                className="ml-2 hidden sm:inline-block"
+              />
+            </div>
           </div>
           <div>
             <div className="text-sm text-gray-600">Diameter (Average)</div>
@@ -186,12 +212,14 @@ interface HeaterCardProps {
   actualTemp: number;
   dutyCycle: number;
   errors: number;
+  historicalData: DataRow[];
 }
 
-function HeaterCard({ heaterNum, setTemp, actualTemp, dutyCycle, errors }: HeaterCardProps) {
+function HeaterCard({ heaterNum, setTemp, actualTemp, dutyCycle, errors, historicalData }: HeaterCardProps) {
   const tempDiff = Math.abs(setTemp - actualTemp);
   const isHeating = dutyCycle > 0;
   const hasErrors = errors > 0;
+  const tempColor = tempDiff > 10 ? '#f97316' : '#16a34a'; // orange-600 : green-600
 
   return (
     <div className="border rounded-lg p-3">
@@ -201,10 +229,16 @@ function HeaterCard({ heaterNum, setTemp, actualTemp, dutyCycle, errors }: Heate
           <span className="text-gray-600">Set:</span>
           <span className="font-medium">{formatTemperature(setTemp)}</span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between items-center">
           <span className="text-gray-600">Actual:</span>
-          <span className={`font-medium ${tempDiff > 10 ? 'text-orange-600' : 'text-green-600'}`}>
+          <span className={`font-medium ${tempDiff > 10 ? 'text-orange-600' : 'text-green-600'} flex items-center gap-1`}>
             {formatTemperature(actualTemp)}
+            <TinyChart
+              data={historicalData}
+              field={`temp${heaterNum}` as keyof DataRow}
+              color={tempColor}
+              className="hidden sm:inline-block"
+            />
           </span>
         </div>
         <div className="flex justify-between">
