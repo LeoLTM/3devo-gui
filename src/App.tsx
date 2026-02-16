@@ -9,13 +9,11 @@ import { Settings } from "@/components/Settings";
 import { AppLayout } from "@/components/AppLayout";
 import { SerialDrawer } from "@/components/SerialDrawer";
 import { useStore } from "@/store";
-import { selectIsConnected } from "@/store/serialSlice";
 import { Plug } from "lucide-react";
 import "./styles/globals.css";
 
 function App() {
   const activePage = useStore((state) => state.activePage);
-  const isConnected = useStore(selectIsConnected);
   const connectionState = useStore((state) => state.connectionState);
   const setupListeners = useStore((state) => state.setupListeners);
   const loadPorts = useStore((state) => state.loadPorts);
