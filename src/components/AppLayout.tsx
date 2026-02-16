@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { useStore } from "@/store";
+import { selectIsConnected } from "@/store/serialSlice";
 import {
   Sidebar,
   SidebarContent,
@@ -33,7 +34,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const activePage = useStore((state) => state.activePage);
   const setActivePage = useStore((state) => state.setActivePage);
   const toggleSerialDrawer = useStore((state) => state.toggleSerialDrawer);
-  const isConnected = useStore((state) => state.isConnected);
+  const isConnected = useStore(selectIsConnected);
   const selectedPort = useStore((state) => state.selectedPort);
 
   const navigationItems: { page: PageType; icon: typeof LayoutDashboard; label: string }[] = [

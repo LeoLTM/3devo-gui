@@ -12,11 +12,13 @@ export interface UISlice {
   // State
   activePage: PageType;
   isSerialDrawerOpen: boolean;
+  autoScroll: boolean;
 
   // Actions
   setActivePage: (page: PageType) => void;
   setSerialDrawerOpen: (open: boolean) => void;
   toggleSerialDrawer: () => void;
+  setAutoScroll: (autoScroll: boolean) => void;
 }
 
 export const createUISlice: StateCreator<
@@ -28,6 +30,7 @@ export const createUISlice: StateCreator<
   // Initial state
   activePage: 'dashboard',
   isSerialDrawerOpen: false,
+  autoScroll: true,
 
   // Actions
   setActivePage: (page) => set({ activePage: page }),
@@ -36,4 +39,6 @@ export const createUISlice: StateCreator<
 
   toggleSerialDrawer: () =>
     set((state) => ({ isSerialDrawerOpen: !state.isSerialDrawerOpen })),
+
+  setAutoScroll: (autoScroll) => set({ autoScroll }),
 });

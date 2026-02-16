@@ -1,12 +1,15 @@
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useStore } from "@/store";
+import { selectIsConnected } from "@/store/serialSlice";
 
 export function SerialMonitor() {
   const serialOutputRef = useRef<HTMLDivElement>(null);
 
   // Serial state
-  const isConnected = useStore((state) => state.isConnected);
+  const isConnected = useStore(selectIsConnected);
   const serialData = useStore((state) => state.serialData);
   const clearSerialData = useStore((state) => state.clearSerialData);
 
@@ -15,12 +18,16 @@ export function SerialMonitor() {
   const historicalData = useStore((state) => state.historicalData);
   const parseWarnings = useStore((state) => state.parseWarnings);
 
+  // UI state
+  const autoScroll = useStore((state) => state.autoScroll);
+  const setAutoScroll = useStore((state) => state.setAutoScroll);
+
   // Auto-scroll to bottom when new data arrives
   useEffect(() => {
-    if (serialOutputRef.current) {
+    if (autoScroll && serialOutputRef.current) {
       serialOutputRef.current.scrollTop = serialOutputRef.current.scrollHeight;
     }
-  }, [serialData]);
+  }, [serialData, autoScroll]);
 
   const clearMonitor = () => {
     clearSerialData();
@@ -38,9 +45,24 @@ export function SerialMonitor() {
             </span>
           )}
         </div>
-        <Button onClick={clearMonitor} variant="outline" size="sm">
-          Clear Monitor
-        </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Checkbox 
+              id="auto-scroll" 
+              checked={autoScroll}
+              onCheckedChange={(checked) => setAutoScroll(!!checked)}
+            />
+            <Label 
+              htmlFor="auto-scroll" 
+              className="text-sm font-normal cursor-pointer"
+            >
+              Auto-scroll
+            </Label>
+          </div>
+          <Button onClick={clearMonitor} variant="outline" size="sm">
+            Clear Monitor
+          </Button>
+        </div>
       </div>
 
       {/* Parse Warnings */}
