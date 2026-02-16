@@ -1,7 +1,9 @@
 mod config;
+mod logging;
 mod parser;
 
 use config::AppConfig;
+use logging::{LogManager, LogWriter};
 use parser::{is_header_line, DataRow, ParserState};
 use serde::Serialize;
 use serialport::SerialPortType;
@@ -111,6 +113,28 @@ async fn connect_serial_port(
     
     eprintln!("[INFO] Successfully opened port {}", port_name);
     
+    // --- Set up file logging ---
+    let mut log_manager = LogManager::new();
+    match config::load_config() {
+        Ok(cfg) => {
+            match logging::create_raw_log_writer(&cfg.output_path) {
+                Ok(writer) => {
+                    let log_path = writer.file_path().display().to_string();
+                    log_manager.add_writer(Box::new(writer));
+                    let _ = window.emit("log-file-opened", log_path);
+                }
+                Err(e) => {
+                    eprintln!("[WARN] Could not create log file: {}", e);
+                    let _ = window.emit("log-error", format!("Could not create log file: {}", e));
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("[WARN] Could not load config for logging: {}", e);
+            let _ = window.emit("log-error", format!("Could not load config: {}", e));
+        }
+    }
+
     // Clone state references for the async task
     let parser_state = Arc::clone(&state.parser_state);
     let init_block = Arc::clone(&state.init_block);
@@ -142,6 +166,9 @@ async fn connect_serial_port(
                     
                     // Always emit raw data for the serial monitor
                     let _ = window.emit("serial-data", trimmed.to_string());
+                    
+                    // Write every line to the log file(s)
+                    log_manager.write_line(trimmed);
                     
                     // Parse the line based on current state
                     let mut state = parser_state.lock().unwrap();
@@ -214,6 +241,9 @@ async fn connect_serial_port(
             }
         }
         
+        // Close all log writers before emitting disconnect
+        log_manager.close_all();
+
         // Emit disconnect event when task exits
         eprintln!("[INFO] Serial task exiting: {}", disconnect_reason);
         let _ = window.emit("serial-disconnected", disconnect_reason);
