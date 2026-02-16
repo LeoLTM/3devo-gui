@@ -19,11 +19,13 @@ function App() {
   const connectionState = useStore((state) => state.connectionState);
   const setupListeners = useStore((state) => state.setupListeners);
   const loadPorts = useStore((state) => state.loadPorts);
+  const loadConfig = useStore((state) => state.loadConfig);
   const toggleSerialDrawer = useStore((state) => state.toggleSerialDrawer);
 
-  // Load ports on mount
+  // Load ports and config on mount
   useEffect(() => {
     loadPorts();
+    loadConfig();
   }, []);
 
   // Setup listeners when connected

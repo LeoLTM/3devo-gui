@@ -1,5 +1,7 @@
+mod config;
 mod parser;
 
+use config::AppConfig;
 use parser::{is_header_line, DataRow, ParserState};
 use serde::Serialize;
 use serialport::SerialPortType;
@@ -278,9 +280,23 @@ fn send_wakeup(state: State<'_, SerialState>) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+fn get_config() -> Result<AppConfig, String> {
+    config::load_config()
+}
+
+#[tauri::command]
+fn set_output_path(path: String) -> Result<AppConfig, String> {
+    let mut cfg = config::load_config()?;
+    cfg.output_path = path;
+    config::save_config(&cfg)?;
+    Ok(cfg)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(SerialState {
             current_port: Arc::new(Mutex::new(None)),
@@ -294,7 +310,9 @@ pub fn run() {
             list_serial_ports,
             connect_serial_port,
             disconnect_serial_port,
-            send_wakeup
+            send_wakeup,
+            get_config,
+            set_output_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
