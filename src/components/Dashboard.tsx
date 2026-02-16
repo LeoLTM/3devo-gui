@@ -1,11 +1,12 @@
 import { DataRow, formatTemperature, formatDiameter, formatPercentage, formatRPM, getStatusDisplay, isFaultActive } from "@/types/extruder";
 import { Card } from "@/components/ui/card";
 import { useStore } from "@/store";
+import { selectIsConnected } from "@/store/serialSlice";
 import { TinyChart } from "@/components/TinyChart";
 
 export function Dashboard() {
   const currentData = useStore((state) => state.currentData);
-  const isConnected = useStore((state) => state.isConnected);
+  const isConnected = useStore(selectIsConnected);
   const historicalData = useStore((state) => state.historicalData);
 
   if (!isConnected) {

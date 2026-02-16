@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SerialMonitor } from "@/components/SerialMonitor";
 import { Dashboard } from "@/components/Dashboard";
 import { Analytics } from "@/components/Analytics";
@@ -7,14 +9,15 @@ import { Settings } from "@/components/Settings";
 import { AppLayout } from "@/components/AppLayout";
 import { SerialDrawer } from "@/components/SerialDrawer";
 import { useStore } from "@/store";
+import { selectIsConnected } from "@/store/serialSlice";
 import { Plug } from "lucide-react";
 import "./styles/globals.css";
 
 function App() {
   const activePage = useStore((state) => state.activePage);
-  const isConnected = useStore((state) => state.isConnected);
+  const isConnected = useStore(selectIsConnected);
+  const connectionState = useStore((state) => state.connectionState);
   const setupListeners = useStore((state) => state.setupListeners);
-  const cleanupListeners = useStore((state) => state.cleanupListeners);
   const loadPorts = useStore((state) => state.loadPorts);
   const toggleSerialDrawer = useStore((state) => state.toggleSerialDrawer);
 
@@ -23,19 +26,20 @@ function App() {
     loadPorts();
   }, []);
 
-  // Setup/cleanup listeners based on connection state
+  // Setup listeners when connected
+  // Note: Cleanup is handled by serial-disconnected event listener
   useEffect(() => {
-    if (isConnected) {
-      setupListeners();
+    if (connectionState === 'connected') {
+      // Use IIFE to handle async properly
+      (async () => {
+        try {
+          await setupListeners();
+        } catch (err) {
+          console.error('Failed to setup listeners:', err);
+        }
+      })();
     }
-    
-    // Cleanup listeners only on unmount or when disconnecting
-    return () => {
-      if (isConnected) {
-        cleanupListeners();
-      }
-    };
-  }, [isConnected]);
+  }, [connectionState]);
 
   // Render active page content
   const renderPage = () => {
@@ -54,7 +58,7 @@ function App() {
   };
 
   return (
-    <>
+    <ErrorBoundary>
       <AppLayout>
         {renderPage()}
       </AppLayout>
@@ -71,7 +75,10 @@ function App() {
       >
         <Plug className="h-6 w-6" />
       </Button>
-    </>
+
+      {/* Toast Notifications */}
+      <Toaster position="bottom-right" />
+    </ErrorBoundary>
   );
 }
 
