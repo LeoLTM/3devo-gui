@@ -47,11 +47,13 @@ fn list_serial_ports() -> Result<Vec<PortInfo>, String> {
         eprintln!("[ERROR] Failed to list serial ports: {}", e);
         e.to_string()
     })?;
-    
+
     let port_infos: Vec<PortInfo> = ports
         .iter()
         .map(|p| {
-            let (port_type, vendor_id, product_id, manufacturer, product, serial_number) = match &p.port_type {
+            let (port_type, vendor_id, product_id, manufacturer, product, serial_number) = match &p
+                .port_type
+            {
                 SerialPortType::UsbPort(usb_info) => (
                     "USB".to_string(),
                     Some(usb_info.vid),
@@ -61,10 +63,12 @@ fn list_serial_ports() -> Result<Vec<PortInfo>, String> {
                     usb_info.serial_number.clone(),
                 ),
                 SerialPortType::PciPort => ("PCI".to_string(), None, None, None, None, None),
-                SerialPortType::BluetoothPort => ("Bluetooth".to_string(), None, None, None, None, None),
+                SerialPortType::BluetoothPort => {
+                    ("Bluetooth".to_string(), None, None, None, None, None)
+                }
                 SerialPortType::Unknown => ("Unknown".to_string(), None, None, None, None, None),
             };
-            
+
             PortInfo {
                 port_name: p.port_name.clone(),
                 port_type,
@@ -76,7 +80,7 @@ fn list_serial_ports() -> Result<Vec<PortInfo>, String> {
             }
         })
         .collect();
-    
+
     eprintln!("[INFO] Found {} serial ports", port_infos.len());
     Ok(port_infos)
 }
@@ -88,11 +92,14 @@ async fn connect_serial_port(
     window: tauri::Window,
     state: State<'_, SerialState>,
 ) -> Result<(), String> {
-    eprintln!("[INFO] Attempting to connect to {} at {} baud", port_name, baud_rate);
-    
+    eprintln!(
+        "[INFO] Attempting to connect to {} at {} baud",
+        port_name, baud_rate
+    );
+
     // Reset abort flag for new connection
     state.abort_flag.store(false, Ordering::Relaxed);
-    
+
     // Open the serial port
     let port = serialport::new(&port_name, baud_rate)
         .timeout(Duration::from_millis(100))
@@ -102,34 +109,32 @@ async fn connect_serial_port(
             eprintln!("[ERROR] {}", error_msg);
             error_msg
         })?;
-    
+
     // Clone port for writing
     let write_port = port.try_clone().map_err(|e| {
         eprintln!("[ERROR] Failed to clone port {}: {}", port_name, e);
         e.to_string()
     })?;
-    
+
     // Store the write port in state
     *state.current_port.lock().unwrap() = Some(write_port);
-    
+
     eprintln!("[INFO] Successfully opened port {}", port_name);
-    
+
     // --- Set up file logging ---
     let mut log_manager = LogManager::new();
     match config::load_config() {
-        Ok(cfg) => {
-            match logging::create_raw_log_writer(&cfg.output_path) {
-                Ok(writer) => {
-                    let log_path = writer.file_path().display().to_string();
-                    log_manager.add_writer(Box::new(writer));
-                    let _ = window.emit("log-file-opened", log_path);
-                }
-                Err(e) => {
-                    eprintln!("[WARN] Could not create log file: {}", e);
-                    let _ = window.emit("log-error", format!("Could not create log file: {}", e));
-                }
+        Ok(cfg) => match logging::create_raw_log_writer(&cfg.output_path) {
+            Ok(writer) => {
+                let log_path = writer.file_path().display().to_string();
+                log_manager.add_writer(Box::new(writer));
+                let _ = window.emit("log-file-opened", log_path);
             }
-        }
+            Err(e) => {
+                eprintln!("[WARN] Could not create log file: {}", e);
+                let _ = window.emit("log-error", format!("Could not create log file: {}", e));
+            }
+        },
         Err(e) => {
             eprintln!("[WARN] Could not load config for logging: {}", e);
             let _ = window.emit("log-error", format!("Could not load config: {}", e));
@@ -141,20 +146,20 @@ async fn connect_serial_port(
     let init_block = Arc::clone(&state.init_block);
     let abort_flag = Arc::clone(&state.abort_flag);
     let port_name_for_task = port_name.clone();
-    
+
     // Spawn a task to read from serial port
     let handle = tokio::spawn(async move {
         let mut reader = BufReader::new(port);
         let mut line = String::new();
         let disconnect_reason: String;
-        
+
         'read_loop: loop {
             // Check abort flag
             if abort_flag.load(Ordering::Relaxed) {
                 disconnect_reason = "Connection closed by user".to_string();
                 break 'read_loop;
             }
-            
+
             line.clear();
             match reader.read_line(&mut line) {
                 Ok(0) => {
@@ -164,28 +169,28 @@ async fn connect_serial_port(
                 }
                 Ok(_) => {
                     let trimmed = line.trim_end();
-                    
+
                     // Always emit raw data for the serial monitor
                     let _ = window.emit("serial-data", trimmed.to_string());
-                    
+
                     // Write every line to the log file(s)
                     log_manager.write_line(trimmed);
-                    
+
                     // Parse the line based on current state
                     let mut state = parser_state.lock().unwrap();
-                    
+
                     match *state {
                         ParserState::Init => {
                             // Check if this is the header line
                             if is_header_line(trimmed) {
                                 *state = ParserState::HeaderDetected;
-                                
+
                                 // Emit init block if we have accumulated any
                                 let init_lines = init_block.lock().unwrap();
                                 if !init_lines.is_empty() {
                                     let _ = window.emit("init-block", init_lines.join("\n"));
                                 }
-                                
+
                                 let _ = window.emit("header-detected", trimmed.to_string());
                             } else {
                                 // Accumulate init block lines
@@ -241,7 +246,7 @@ async fn connect_serial_port(
                 }
             }
         }
-        
+
         // Close all log writers before emitting disconnect
         log_manager.close_all();
 
@@ -249,26 +254,26 @@ async fn connect_serial_port(
         eprintln!("[INFO] Serial task exiting: {}", disconnect_reason);
         let _ = window.emit("serial-disconnected", disconnect_reason);
     });
-    
+
     // Store task handle
     *state.task_handle.lock().unwrap() = Some(handle);
-    
+
     Ok(())
 }
 
 #[tauri::command]
 async fn disconnect_serial_port(state: State<'_, SerialState>) -> Result<(), String> {
     eprintln!("[INFO] Disconnecting serial port");
-    
+
     // Set abort flag to stop the read task
     state.abort_flag.store(true, Ordering::Relaxed);
-    
+
     // Drop the port handle
     *state.current_port.lock().unwrap() = None;
-    
+
     // Extract task handle (need to drop mutex guard before await)
     let task_handle = state.task_handle.lock().unwrap().take();
-    
+
     // Wait for task to complete (with timeout)
     if let Some(handle) = task_handle {
         match tokio::time::timeout(Duration::from_secs(2), handle).await {
@@ -276,11 +281,11 @@ async fn disconnect_serial_port(state: State<'_, SerialState>) -> Result<(), Str
             Err(_) => eprintln!("[WARN] Serial task termination timed out"),
         }
     }
-    
+
     // Reset parser state and clear init block
     *state.parser_state.lock().unwrap() = ParserState::Init;
     state.init_block.lock().unwrap().clear();
-    
+
     eprintln!("[INFO] Serial port disconnected successfully");
     Ok(())
 }
@@ -288,20 +293,18 @@ async fn disconnect_serial_port(state: State<'_, SerialState>) -> Result<(), Str
 #[tauri::command]
 fn send_wakeup(state: State<'_, SerialState>) -> Result<(), String> {
     let mut port_lock = state.current_port.lock().unwrap();
-    
+
     if let Some(port) = port_lock.as_mut() {
-        port.write_all(b"\n")
-            .map_err(|e| {
-                let error_msg = format!("Failed to send wakeup: {}", e);
-                eprintln!("[ERROR] {}", error_msg);
-                error_msg
-            })?;
-        port.flush()
-            .map_err(|e| {
-                let error_msg = format!("Failed to flush: {}", e);
-                eprintln!("[ERROR] {}", error_msg);
-                error_msg
-            })?;
+        port.write_all(b"\n").map_err(|e| {
+            let error_msg = format!("Failed to send wakeup: {}", e);
+            eprintln!("[ERROR] {}", error_msg);
+            error_msg
+        })?;
+        port.flush().map_err(|e| {
+            let error_msg = format!("Failed to flush: {}", e);
+            eprintln!("[ERROR] {}", error_msg);
+            error_msg
+        })?;
         eprintln!("[INFO] Wakeup signal sent successfully");
         Ok(())
     } else {
@@ -327,6 +330,8 @@ fn set_output_path(path: String) -> Result<AppConfig, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(SerialState {

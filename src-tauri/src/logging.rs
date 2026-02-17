@@ -91,10 +91,7 @@ impl LogManager {
 
     /// Register a writer. It will receive all subsequent lines.
     pub fn add_writer(&mut self, writer: Box<dyn LogWriter>) {
-        eprintln!(
-            "[LOG] Writer opened: {}",
-            writer.file_path().display()
-        );
+        eprintln!("[LOG] Writer opened: {}", writer.file_path().display());
         self.writers.push(writer);
     }
 
@@ -124,10 +121,7 @@ impl LogManager {
                     e
                 );
             } else {
-                eprintln!(
-                    "[LOG] Writer closed: {}",
-                    w.file_path().display()
-                );
+                eprintln!("[LOG] Writer closed: {}", w.file_path().display());
             }
         }
         self.writers.clear();

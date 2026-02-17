@@ -1,5 +1,7 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { useStore } from "@/store";
+import { getVersion } from "@tauri-apps/api/app";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { selectIsConnected } from "@/store/serialSlice";
 import {
   Sidebar,
@@ -17,10 +19,10 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { 
-  LayoutDashboard, 
-  Terminal, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Terminal,
+  BarChart3,
   Settings,
   Plug,
 } from "lucide-react";
@@ -37,6 +39,19 @@ export function AppLayout({ children }: AppLayoutProps) {
   const toggleSerialDrawer = useStore((state) => state.toggleSerialDrawer);
   const isConnected = useStore(selectIsConnected);
   const selectedPort = useStore((state) => state.selectedPort);
+  const [appVersion, setAppVersion] = useState<string>("dev");
+
+  useEffect(() => {
+    getVersion()
+      .then((version) => {
+        setAppVersion(version);
+        getCurrentWindow().setTitle(`3devo Extruder v${version}`);
+      })
+      .catch(() => {
+        // Fallback for dev environment
+        setAppVersion("dev");
+      });
+  }, []);
 
   const navigationItems: { page: PageType; icon: typeof LayoutDashboard; label: string }[] = [
     { page: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -52,7 +67,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="flex items-center justify-between px-2 py-2">
             <div className="flex flex-col">
               <span className="font-semibold text-sm">3devo Extruder</span>
-              <span className="text-xs text-muted-foreground">Control Panel</span>
+              <span className="text-xs text-muted-foreground">v{appVersion}</span>
             </div>
           </div>
           <Separator />
@@ -96,9 +111,8 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="px-4 py-2 text-sm">
             <div className="flex items-center gap-2">
               <div
-                className={`h-2 w-2 rounded-full ${
-                  isConnected ? "bg-green-500" : "bg-gray-400"
-                }`}
+                className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-gray-400"
+                  }`}
               />
               <span className="text-xs text-muted-foreground">
                 {isConnected ? `Connected to ${selectedPort}` : "Disconnected"}

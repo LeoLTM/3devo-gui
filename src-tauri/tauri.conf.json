@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "devo-gui",
+        "title": "3devo Extruder",
         "width": 1280,
         "height": 720
       }
@@ -23,6 +23,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -30,6 +31,19 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlEOEY3NzRENTQ5OUI3NjkKUldScHQ1bFVUWGVQbmVDQVpIYlNjcktKR1d6TTBFcjJ6V1BzMXpjTHNiZ2dKRTlUWFFoTk44T2MK",
+      "endpoints": [
+        "https://github.com/LeoLTM/3devo-gui/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

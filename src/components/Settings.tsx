@@ -15,6 +15,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useStore } from "@/store";
 import { TeableSetupDialog } from "@/components/TeableSetupDialog";
 import { TeableTableSelector } from "@/components/TeableTableSelector";
+import { ModeToggle } from "@/components/ThemeToggle";
 
 export function Settings() {
   const outputPath = useStore((state) => state.outputPath);
@@ -197,6 +198,10 @@ export function Settings() {
         open={teableDialogOpen}
         onOpenChange={setTeableDialogOpen}
       />
+      <Separator />
+
+      <ModeToggle />
+
     </div>
   );
 }
