@@ -8,6 +8,7 @@ import { Analytics } from "@/components/Analytics";
 import { Settings } from "@/components/Settings";
 import { AppLayout } from "@/components/AppLayout";
 import { SerialDrawer } from "@/components/SerialDrawer";
+import { UpdateChecker } from "@/components/UpdateChecker";
 import { useStore } from "@/store";
 import { Plug } from "lucide-react";
 import "./styles/globals.css";
@@ -59,6 +60,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <UpdateChecker />
       <AppLayout>
         {renderPage()}
       </AppLayout>
