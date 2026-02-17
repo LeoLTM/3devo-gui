@@ -34,6 +34,8 @@ import {
   Loader2,
   Clock,
   AlertCircle,
+  RefreshCw,
+  X,
 } from "lucide-react";
 
 /**
@@ -51,9 +53,13 @@ function formatElapsed(seconds: number): string {
 export function ExperimentWidget() {
   const experimentStatus = useStore((s) => s.experimentStatus);
   const experimentStartTime = useStore((s) => s.experimentStartTime);
+  const experimentName = useStore((s) => s.experimentName);
   const isExperimentLoading = useStore((s) => s.isExperimentLoading);
   const startExperiment = useStore((s) => s.startExperiment);
   const stopExperiment = useStore((s) => s.stopExperiment);
+  const retryStopExperiment = useStore((s) => s.retryStopExperiment);
+  const discardPendingStop = useStore((s) => s.discardPendingStop);
+  const pendingStopData = useStore((s) => s.pendingStopData);
   const isTeableConnected = useStore((s) => s.isTeableConnected);
   const teableTableId = useStore((s) => s.teableTableId);
   const isConnected = useStore(selectIsConnected);
@@ -77,9 +83,11 @@ export function ExperimentWidget() {
   }, [experimentStatus, experimentStartTime]);
 
   // Form state
+  const [formExperimentName, setFormExperimentName] = useState("");
   const [sourceMaterialId, setSourceMaterialId] = useState("");
   const [fanPercent, setFanPercent] = useState("");
   const [setDiameter, setSetDiameter] = useState("1.75");
+  const [nozzleDiameter, setNozzleDiameter] = useState("3");
   const [density, setDensity] = useState("");
   const [color, setColor] = useState("");
   const [manufacturingLocation, setManufacturingLocation] = useState("");
@@ -87,9 +95,11 @@ export function ExperimentWidget() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const resetForm = useCallback(() => {
+    setFormExperimentName("");
     setSourceMaterialId("");
     setFanPercent("");
     setSetDiameter("1.75");
+    setNozzleDiameter("3");
     setDensity("");
     setColor("");
     setManufacturingLocation("");
@@ -107,6 +117,11 @@ export function ExperimentWidget() {
   const handleStart = async () => {
     setFormError(null);
 
+    if (!formExperimentName.trim()) {
+      setFormError("Experiment name is required.");
+      return;
+    }
+
     const fan = parseFloat(fanPercent);
     const dens = parseFloat(density);
 
@@ -120,9 +135,11 @@ export function ExperimentWidget() {
     }
 
     const formData: ExperimentFormData = {
+      experimentName: formExperimentName.trim(),
       sourceMaterialId: sourceMaterialId.trim(),
       fanPercent: fan,
       setDiameter: parseFloat(setDiameter),
+      nozzleDiameter: parseFloat(nozzleDiameter),
       density: dens,
       color: color.trim(),
       manufacturingLocation: manufacturingLocation.trim(),
@@ -146,9 +163,60 @@ export function ExperimentWidget() {
     }
   };
 
+  const handleRetry = async () => {
+    try {
+      await retryStopExperiment();
+    } catch {
+      // Error toast is shown by the store action
+    }
+  };
+
   const canStart = isTeableConnected && !!teableTableId;
 
-  // --- Running state: show elapsed time + stop button ---
+  // --- Stop-failed state: show retry / discard controls ---
+  if (experimentStatus === "stop-failed" && pendingStopData) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
+          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+          <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+            Update failed
+          </span>
+          {experimentName && (
+            <span className="text-xs text-amber-600/70 dark:text-amber-400/70 max-w-[120px] truncate">
+              — {experimentName}
+            </span>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRetry}
+          disabled={isExperimentLoading}
+          className="gap-1.5"
+        >
+          {isExperimentLoading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          Retry
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={discardPendingStop}
+          disabled={isExperimentLoading}
+          className="gap-1 text-muted-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+          Discard
+        </Button>
+      </div>
+    );
+  }
+
+  // --- Running state: show elapsed time + experiment name + stop button ---
   if (experimentStatus === "running") {
     return (
       <div className="flex items-center gap-2">
@@ -157,6 +225,11 @@ export function ExperimentWidget() {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
           </span>
+          {experimentName && (
+            <span className="text-sm font-medium text-red-600 dark:text-red-400 max-w-[140px] truncate">
+              {experimentName}
+            </span>
+          )}
           <Clock className="h-3.5 w-3.5 text-red-500" />
           <span className="text-sm font-mono font-medium text-red-600 dark:text-red-400">
             {formatElapsed(elapsed)}
@@ -224,6 +297,21 @@ export function ExperimentWidget() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* Experiment name — first field */}
+            <div className="space-y-1.5">
+              <Label htmlFor="exp-name">Experiment Name *</Label>
+              <Input
+                id="exp-name"
+                placeholder="e.g. PLA-Black-Run-017"
+                value={formExperimentName}
+                onChange={(e) => setFormExperimentName(e.target.value)}
+                disabled={isExperimentLoading}
+                autoFocus
+              />
+            </div>
+
+            <Separator />
+
             {/* Auto-captured preview */}
             <div className="rounded-md border bg-muted/50 p-3 space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -270,7 +358,7 @@ export function ExperimentWidget() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="exp-fan-percent">Fan Percent</Label>
+                  <Label htmlFor="exp-fan-percent">Fan Percent *</Label>
                   <Input
                     id="exp-fan-percent"
                     type="number"
@@ -304,9 +392,25 @@ export function ExperimentWidget() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="exp-density">
-                    Density (g/cm³)
-                  </Label>
+                  <Label htmlFor="exp-nozzle-diameter">Nozzle Diameter (mm)</Label>
+                  <Select
+                    value={nozzleDiameter}
+                    onValueChange={setNozzleDiameter}
+                    disabled={isExperimentLoading}
+                  >
+                    <SelectTrigger id="exp-nozzle-diameter" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 mm</SelectItem>
+                      <SelectItem value="3">3 mm</SelectItem>
+                      <SelectItem value="4">4 mm</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="exp-density">Density (g/cm³) *</Label>
                   <Input
                     id="exp-density"
                     type="number"
@@ -321,7 +425,9 @@ export function ExperimentWidget() {
                     Used to calculate filament weight on stop
                   </p>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="exp-color">Color</Label>
                   <Input
@@ -332,17 +438,17 @@ export function ExperimentWidget() {
                     disabled={isExperimentLoading}
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="exp-location">Manufacturing Location</Label>
-                <Input
-                  id="exp-location"
-                  placeholder="e.g. Lab A, Building 3"
-                  value={manufacturingLocation}
-                  onChange={(e) => setManufacturingLocation(e.target.value)}
-                  disabled={isExperimentLoading}
-                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="exp-location">Manufacturing Location</Label>
+                  <Input
+                    id="exp-location"
+                    placeholder="e.g. Lab A, Building 3"
+                    value={manufacturingLocation}
+                    onChange={(e) => setManufacturingLocation(e.target.value)}
+                    disabled={isExperimentLoading}
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">
