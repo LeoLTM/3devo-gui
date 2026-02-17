@@ -23,6 +23,9 @@ export interface TeableSlice {
   teableUserAvatar: string | null;
   isTeableConnected: boolean;
   isTeableLoading: boolean;
+  teableSpaceId: string | null;
+  teableBaseId: string | null;
+  teableTableId: string | null;
 
   // Actions
   loadTeableConfig: () => Promise<void>;
@@ -35,6 +38,7 @@ export interface TeableSlice {
     userAvatar: string | null,
   ) => Promise<void>;
   removeTeableConfig: () => Promise<void>;
+  saveTeableTarget: (spaceId: string, baseId: string, tableId: string) => Promise<void>;
 }
 
 interface AppConfig {
@@ -44,6 +48,9 @@ interface AppConfig {
   teable_user_name?: string | null;
   teable_user_email?: string | null;
   teable_user_avatar?: string | null;
+  teable_space_id?: string | null;
+  teable_base_id?: string | null;
+  teable_table_id?: string | null;
 }
 
 export const createTeableSlice: StateCreator<
@@ -59,6 +66,9 @@ export const createTeableSlice: StateCreator<
   teableUserAvatar: null,
   isTeableConnected: false,
   isTeableLoading: false,
+  teableSpaceId: null,
+  teableBaseId: null,
+  teableTableId: null,
 
   // Actions
   loadTeableConfig: async () => {
@@ -71,6 +81,9 @@ export const createTeableSlice: StateCreator<
         teableUserEmail: config.teable_user_email ?? null,
         teableUserAvatar: config.teable_user_avatar ?? null,
         isTeableConnected: connected,
+        teableSpaceId: config.teable_space_id ?? null,
+        teableBaseId: config.teable_base_id ?? null,
+        teableTableId: config.teable_table_id ?? null,
       });
     } catch (err) {
       console.error('Failed to load Teable config:', err);
@@ -129,11 +142,34 @@ export const createTeableSlice: StateCreator<
         teableUserEmail: null,
         teableUserAvatar: null,
         isTeableConnected: false,
+        teableSpaceId: null,
+        teableBaseId: null,
+        teableTableId: null,
       });
       showToast.success('Teable integration removed');
     } catch (err) {
       console.error('Failed to remove Teable config:', err);
       showToast.error('Failed to remove Teable config', String(err));
+    }
+  },
+
+  saveTeableTarget: async (spaceId: string, baseId: string, tableId: string) => {
+    try {
+      await invoke('save_teable_target', {
+        spaceId,
+        baseId,
+        tableId,
+      });
+      set({
+        teableSpaceId: spaceId,
+        teableBaseId: baseId,
+        teableTableId: tableId,
+      });
+      showToast.success('Teable target table saved');
+    } catch (err) {
+      console.error('Failed to save Teable target:', err);
+      showToast.error('Failed to save Teable target', String(err));
+      throw err;
     }
   },
 });

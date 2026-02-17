@@ -14,6 +14,7 @@ import {
 import { open } from "@tauri-apps/plugin-dialog";
 import { useStore } from "@/store";
 import { TeableSetupDialog } from "@/components/TeableSetupDialog";
+import { TeableTableSelector } from "@/components/TeableTableSelector";
 
 export function Settings() {
   const outputPath = useStore((state) => state.outputPath);
@@ -173,6 +174,23 @@ export function Settings() {
           )}
         </div>
       </Card>
+
+      {/* Teable Target Table Section - only shown when connected */}
+      {isTeableConnected && (
+        <Card className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Target Table</h3>
+              <p className="text-sm text-muted-foreground">
+                Select the space, base, and table where experiment data will be
+                recorded.
+              </p>
+            </div>
+
+            <TeableTableSelector />
+          </div>
+        </Card>
+      )}
 
       {/* Teable Setup Dialog */}
       <TeableSetupDialog
