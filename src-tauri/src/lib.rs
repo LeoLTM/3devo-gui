@@ -1,6 +1,7 @@
 mod config;
 mod logging;
 mod parser;
+mod teable;
 
 use config::AppConfig;
 use logging::{LogManager, LogWriter};
@@ -342,7 +343,10 @@ pub fn run() {
             disconnect_serial_port,
             send_wakeup,
             get_config,
-            set_output_path
+            set_output_path,
+            teable::test_teable_connection,
+            teable::save_teable_config,
+            teable::remove_teable_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

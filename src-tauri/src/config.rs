@@ -8,6 +8,16 @@ use serde::{Deserialize, Serialize};
 pub struct AppConfig {
     /// Directory path where log files and other output files are saved.
     pub output_path: String,
+    /// URL of the self-hosted Teable instance (e.g. "https://teable.example.com").
+    pub teable_url: Option<String>,
+    /// Personal access token for authenticating with the Teable API.
+    pub teable_token: Option<String>,
+    /// Display name of the Teable user (cached from API).
+    pub teable_user_name: Option<String>,
+    /// Email of the Teable user (cached from API).
+    pub teable_user_email: Option<String>,
+    /// Avatar URL of the Teable user (cached from API).
+    pub teable_user_avatar: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -19,6 +29,11 @@ impl Default for AppConfig {
 
         Self {
             output_path: default_path,
+            teable_url: None,
+            teable_token: None,
+            teable_user_name: None,
+            teable_user_email: None,
+            teable_user_avatar: None,
         }
     }
 }
