@@ -28,7 +28,7 @@ export function UpdateChecker() {
     function showUpdateToast(update: Update) {
         toast(`Update v${update.version} available`, {
             description: update.body ?? "A new version is ready to install.",
-            duration: Infinity,
+            dismissible: true,
             action: {
                 label: updating ? "Updating…" : "Install & Restart",
                 onClick: () => installUpdate(update),

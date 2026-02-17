@@ -12,6 +12,7 @@ import { UpdateChecker } from "@/components/UpdateChecker";
 import { useStore } from "@/store";
 import { Plug } from "lucide-react";
 import "./styles/globals.css";
+import { ThemeProvider } from "./components/ThemeProvider";
 
 function App() {
   const activePage = useStore((state) => state.activePage);
@@ -60,26 +61,28 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <UpdateChecker />
-      <AppLayout>
-        {renderPage()}
-      </AppLayout>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <UpdateChecker />
+        <AppLayout>
+          {renderPage()}
+        </AppLayout>
 
-      {/* Global Serial Drawer */}
-      <SerialDrawer />
+        {/* Global Serial Drawer */}
+        <SerialDrawer />
 
-      {/* Floating Action Button */}
-      <Button
-        onClick={toggleSerialDrawer}
-        size="lg"
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40"
-        title="Open Serial Connection"
-      >
-        <Plug className="h-6 w-6" />
-      </Button>
+        {/* Floating Action Button */}
+        <Button
+          onClick={toggleSerialDrawer}
+          size="lg"
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40"
+          title="Open Serial Connection"
+        >
+          <Plug className="h-6 w-6" />
+        </Button>
 
-      {/* Toast Notifications */}
-      <Toaster position="bottom-right" />
+        {/* Toast Notifications */}
+        <Toaster position="bottom-right" richColors theme="system" />
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

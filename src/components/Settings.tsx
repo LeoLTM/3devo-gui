@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Settings as SettingsIcon, FolderOpen } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useStore } from "@/store";
+import { ModeToggle } from "./ThemeToggle";
 
 export function Settings() {
   const outputPath = useStore((state) => state.outputPath);
@@ -84,6 +85,11 @@ export function Settings() {
           </div>
         </div>
       </Card>
+
+      <Separator />
+
+      <ModeToggle />
+
     </div>
   );
 }
