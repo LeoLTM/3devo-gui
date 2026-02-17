@@ -2,69 +2,117 @@ name: 'build'
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - release
+  release:
+    types: [published]
 
 jobs:
-  publish-tauri:
+  build-linux:
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'ubuntu-22.04'
-            args: ''
-          - platform: 'ubuntu-22.04-arm' # Only available in public repos.
-            args: ''
-          - platform: 'windows-latest'
-            args: ''
-
-    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: install dependencies (ubuntu only)
-        if: startsWith(matrix.platform, 'ubuntu')
+      - name: Inject release version
+        if: github.event_name == 'release'
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          echo "Injecting version: $VERSION"
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > tmp.json && mv tmp.json src-tauri/tauri.conf.json
+          jq --arg v "$VERSION" '.version = $v' package.json > tmp.json && mv tmp.json package.json
+
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf libudev-dev xdg-utils
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libudev-dev
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2.0.2
 
-      - name: setup node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
 
-
-      - name: install Rust stable
-        uses: dtolnay/rust-toolchain@stable # Set this to dtolnay/rust-toolchain@nightly
-        with:
-          # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
 
-      - name: install frontend dependencies
-        # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
-        run: bun install # change this to npm or pnpm depending on which one you use.
+      - name: Install frontend dependencies
+        run: bun install
 
       - uses: tauri-apps/tauri-action@v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: ${{ matrix.args }}
 
-      - name: Upload artifacts
+      - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:
-          name: tauri-app-${{ matrix.platform }}
+          name: tauri-app-linux
+          path: |
+            src-tauri/target/release/bundle/
+            !src-tauri/target/release/bundle/**/*.d
+          if-no-files-found: warn
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-appimage
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: warn
+
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject release version
+        if: github.event_name == 'release'
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.release.tag_name }}" -replace '^v', ''
+          Write-Host "Injecting version: $version"
+          $tauri = Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json
+          $tauri.version = $version
+          $tauri | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
+          $pkg = Get-Content package.json | ConvertFrom-Json
+          $pkg.version = $version
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2.0.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - uses: tauri-apps/tauri-action@v0.6.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-app-windows
           path: |
             src-tauri/target/release/bundle/
             !src-tauri/target/release/bundle/**/*.d
