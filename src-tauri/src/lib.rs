@@ -350,7 +350,10 @@ pub fn run() {
             teable::list_teable_spaces,
             teable::list_teable_bases,
             teable::list_teable_tables,
-            teable::save_teable_target
+            teable::save_teable_target,
+            teable::create_teable_record,
+            teable::update_teable_record,
+            teable::ensure_teable_fields
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

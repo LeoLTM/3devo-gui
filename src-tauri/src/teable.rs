@@ -347,3 +347,285 @@ pub fn save_teable_target(
     config::save_config(&cfg)?;
     Ok(cfg)
 }
+
+/// Response from creating/updating a Teable record.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TeableRecord {
+    pub id: String,
+    pub fields: serde_json::Value,
+}
+
+/// A field definition from the Teable API.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TeableField {
+    pub id: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub field_type: String,
+    #[serde(rename = "isPrimary", default)]
+    pub is_primary: bool,
+}
+
+/// Description of a field that 3devo-gui requires in the target table.
+struct RequiredField {
+    name: &'static str,
+    field_type: &'static str,
+    description: &'static str,
+}
+
+/// All fields that the experiment row needs.
+/// The first entry in the table (primary field) is *not* included here because
+/// Teable creates a primary "Title" field automatically.
+const REQUIRED_FIELDS: &[RequiredField] = &[
+    RequiredField { name: "Created At",             field_type: "singleLineText", description: "Date/time when the experiment was started (ISO 8601)" },
+    RequiredField { name: "Operator",               field_type: "singleLineText", description: "Name of the operator (from Teable API token)" },
+    RequiredField { name: "Source Material ID",      field_type: "singleLineText", description: "Free-text material identifier" },
+    RequiredField { name: "Set RPM",                field_type: "number",          description: "Extruder set RPM at experiment start" },
+    RequiredField { name: "Set T4",                 field_type: "number",          description: "Heater 4 set temperature" },
+    RequiredField { name: "Set T3",                 field_type: "number",          description: "Heater 3 set temperature" },
+    RequiredField { name: "Set T2",                 field_type: "number",          description: "Heater 2 set temperature" },
+    RequiredField { name: "Set T1",                 field_type: "number",          description: "Heater 1 set temperature" },
+    RequiredField { name: "Fan Percent",            field_type: "number",          description: "Fan speed percentage" },
+    RequiredField { name: "Set Diameter",           field_type: "number",          description: "Target filament diameter (1.75 or 2.85 mm)" },
+    RequiredField { name: "Filament Weight",        field_type: "number",          description: "Calculated weight (volume × density), filled on stop" },
+    RequiredField { name: "Duration",               field_type: "singleLineText", description: "Experiment duration (HH:MM:SS), filled on stop" },
+    RequiredField { name: "Experiment Name",        field_type: "singleLineText", description: "Log file name, filled on stop" },
+    RequiredField { name: "Color",                  field_type: "singleLineText", description: "Filament color" },
+    RequiredField { name: "Manufacturing Location", field_type: "singleLineText", description: "Where the experiment is performed" },
+    RequiredField { name: "Notes",                  field_type: "longText",        description: "Free-form notes about the experiment" },
+];
+
+/// Ensure all fields required by 3devo-gui exist in the selected table.
+///
+/// 1. Fetches the current field list via `GET /api/table/{tableId}/field`.
+/// 2. Compares against [`REQUIRED_FIELDS`].
+/// 3. Creates any missing fields via `POST /api/table/{tableId}/field`.
+///
+/// Returns the list of fields that were created (empty if all existed).
+#[tauri::command]
+pub async fn ensure_teable_fields() -> Result<Vec<String>, String> {
+    let cfg = config::load_config()?;
+    let url = cfg.teable_url.ok_or("Teable not configured")?;
+    let token = cfg.teable_token.ok_or("Teable token not found")?;
+    let table_id = cfg.teable_table_id.ok_or("No Teable table selected")?;
+
+    let client = build_client()?;
+    let base_url = url.trim_end_matches('/');
+
+    // --- Step 1: List existing fields ---
+    let list_endpoint = format!("{}/api/table/{}/field", base_url, table_id);
+    eprintln!("[TEABLE] Listing fields for table {}", table_id);
+
+    let response = client
+        .get(&list_endpoint)
+        .header("Authorization", format!("Bearer {}", token))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to list fields: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to list fields: {} — {}", status, body));
+    }
+
+    let existing_fields: Vec<TeableField> = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse fields response: {}", e))?;
+
+    let existing_names: std::collections::HashSet<String> = existing_fields
+        .iter()
+        .map(|f| f.name.clone())
+        .collect();
+
+    eprintln!(
+        "[TEABLE] Found {} existing fields: {:?}",
+        existing_fields.len(),
+        existing_names
+    );
+
+    // --- Step 2: Create missing fields ---
+    let mut created: Vec<String> = Vec::new();
+    let create_endpoint = format!("{}/api/table/{}/field", base_url, table_id);
+
+    for required in REQUIRED_FIELDS {
+        if existing_names.contains(required.name) {
+            continue;
+        }
+
+        eprintln!("[TEABLE] Creating missing field: {} ({})", required.name, required.field_type);
+
+        let body = serde_json::json!({
+            "type": required.field_type,
+            "name": required.name,
+            "description": required.description,
+        });
+
+        let resp = client
+            .post(&create_endpoint)
+            .header("Authorization", format!("Bearer {}", token))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("Failed to create field '{}': {}", required.name, e))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let err_body = resp.text().await.unwrap_or_default();
+            // Log but don't abort — try to create the rest
+            eprintln!(
+                "[TEABLE] Warning: could not create field '{}': {} — {}",
+                required.name, status, err_body
+            );
+            return Err(format!(
+                "Failed to create field '{}': {} — {}",
+                required.name, status, err_body
+            ));
+        }
+
+        eprintln!("[TEABLE] Created field: {}", required.name);
+        created.push(required.name.to_string());
+    }
+
+    if created.is_empty() {
+        eprintln!("[TEABLE] All required fields already exist");
+    } else {
+        eprintln!("[TEABLE] Created {} missing fields: {:?}", created.len(), created);
+    }
+
+    Ok(created)
+}
+
+/// Create a new record in the configured Teable table.
+///
+/// `fields` is a JSON object mapping field names to values, e.g.
+/// `{ "Operator": "Leo", "Set RPM": 12.5 }`.
+///
+/// Returns the created record (including its ID for later updates).
+#[tauri::command]
+pub async fn create_teable_record(
+    fields: serde_json::Value,
+) -> Result<TeableRecord, String> {
+    let cfg = config::load_config()?;
+    let url = cfg.teable_url.ok_or("Teable not configured")?;
+    let token = cfg.teable_token.ok_or("Teable token not found")?;
+    let table_id = cfg.teable_table_id.ok_or("No Teable table selected")?;
+
+    let client = build_client()?;
+    let endpoint = format!("{}/api/table/{}/record", url.trim_end_matches('/'), table_id);
+
+    eprintln!("[TEABLE] Creating record in table {}", table_id);
+    eprintln!("[TEABLE] Fields: {}", serde_json::to_string_pretty(&fields).unwrap_or_default());
+
+    let body = serde_json::json!({
+        "fieldKeyType": "name",
+        "typecast": true,
+        "records": [
+            {
+                "fields": fields
+            }
+        ]
+    });
+
+    let response = client
+        .post(&endpoint)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[TEABLE] Failed to create record: {:?}", e);
+            format!("Failed to create record: {}", e)
+        })?;
+
+    let status = response.status();
+    let response_text = response.text().await.unwrap_or_default();
+
+    if !status.is_success() {
+        eprintln!("[TEABLE] Create record failed: {} — {}", status, response_text);
+        return Err(format!("Failed to create record: {} — {}", status, response_text));
+    }
+
+    eprintln!("[TEABLE] Create record response: {}", response_text);
+
+    // Response is { "records": [ { "id": "...", "fields": { ... } } ] }
+    let wrapper: serde_json::Value = serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {} — body: {}", e, response_text))?;
+
+    let record_val = wrapper
+        .get("records")
+        .and_then(|r| r.as_array())
+        .and_then(|arr| arr.first())
+        .ok_or_else(|| format!("No record in response: {}", response_text))?;
+
+    let record: TeableRecord = serde_json::from_value(record_val.clone())
+        .map_err(|e| format!("Failed to parse record: {} — value: {}", e, record_val))?;
+
+    eprintln!("[TEABLE] Record created with ID: {}", record.id);
+    Ok(record)
+}
+
+/// Update an existing record in the configured Teable table.
+///
+/// `record_id` is the Teable record ID (e.g. "recXXX...").
+/// `fields` is a JSON object with only the fields to update.
+#[tauri::command]
+pub async fn update_teable_record(
+    record_id: String,
+    fields: serde_json::Value,
+) -> Result<TeableRecord, String> {
+    let cfg = config::load_config()?;
+    let url = cfg.teable_url.ok_or("Teable not configured")?;
+    let token = cfg.teable_token.ok_or("Teable token not found")?;
+    let table_id = cfg.teable_table_id.ok_or("No Teable table selected")?;
+
+    let client = build_client()?;
+    let endpoint = format!(
+        "{}/api/table/{}/record/{}",
+        url.trim_end_matches('/'),
+        table_id,
+        record_id
+    );
+
+    eprintln!("[TEABLE] Updating record {} in table {}", record_id, table_id);
+    eprintln!("[TEABLE] Fields: {}", serde_json::to_string_pretty(&fields).unwrap_or_default());
+
+    let body = serde_json::json!({
+        "fieldKeyType": "name",
+        "typecast": true,
+        "record": {
+            "fields": fields
+        }
+    });
+
+    let response = client
+        .patch(&endpoint)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[TEABLE] Failed to update record: {:?}", e);
+            format!("Failed to update record: {}", e)
+        })?;
+
+    let status = response.status();
+    let response_text = response.text().await.unwrap_or_default();
+
+    if !status.is_success() {
+        eprintln!("[TEABLE] Update record failed: {} — {}", status, response_text);
+        return Err(format!("Failed to update record: {} — {}", status, response_text));
+    }
+
+    eprintln!("[TEABLE] Update record response: {}", response_text);
+
+    let record: TeableRecord = serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse record response: {} — body: {}", e, response_text))?;
+
+    eprintln!("[TEABLE] Record {} updated", record.id);
+    Ok(record)
+}

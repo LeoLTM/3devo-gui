@@ -4,11 +4,12 @@ import { createExtruderDataSlice, ExtruderDataSlice } from '@/store/extruderData
 import { createUISlice, UISlice } from '@/store/uiSlice';
 import { createSettingsSlice, SettingsSlice } from '@/store/settingsSlice';
 import { createTeableSlice, TeableSlice } from '@/store/teableSlice';
+import { createExperimentSlice, ExperimentSlice } from '@/store/experimentSlice';
 
 /**
  * Combined store type with all slices
  */
-export type StoreState = SerialSlice & ExtruderDataSlice & UISlice & SettingsSlice & TeableSlice;
+export type StoreState = SerialSlice & ExtruderDataSlice & UISlice & SettingsSlice & TeableSlice & ExperimentSlice;
 
 /**
  * Main Zustand store combining all slices
@@ -19,4 +20,5 @@ export const useStore = create<StoreState>()((...a) => ({
   ...createUISlice(...a),
   ...createSettingsSlice(...a),
   ...createTeableSlice(...a),
+  ...createExperimentSlice(...a),
 }));

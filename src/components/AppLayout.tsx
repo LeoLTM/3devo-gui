@@ -24,6 +24,7 @@ import {
   Settings,
   Plug,
 } from "lucide-react";
+import { ExperimentWidget } from "@/components/ExperimentWidget";
 import type { PageType } from "@/store/uiSlice";
 
 interface AppLayoutProps {
@@ -114,6 +115,9 @@ export function AppLayout({ children }: AppLayoutProps) {
           <h1 className="text-lg font-semibold">
             {navigationItems.find((item) => item.page === activePage)?.label || "3devo Filament Extruder"}
           </h1>
+          <div className="ml-auto">
+            <ExperimentWidget />
+          </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
           {children}

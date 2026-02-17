@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { showToast } from '@/lib/utils';
 import type { ExtruderDataSlice } from './extruderDataSlice';
+import type { ExperimentSlice } from './experimentSlice';
 
 /**
  * Connection state enum for state machine
@@ -54,7 +55,7 @@ export interface SerialSlice {
 }
 
 export const createSerialSlice: StateCreator<
-  SerialSlice & ExtruderDataSlice,
+  SerialSlice & ExtruderDataSlice & ExperimentSlice,
   [],
   [],
   SerialSlice
@@ -272,6 +273,19 @@ export const createSerialSlice: StateCreator<
         }
       });
       unlistenFns.push(unlistenWarning);
+
+      // Listen for log file path
+      const unlistenLogFile = await listen<string>('log-file-opened', (event) => {
+        try {
+          const state = get();
+          if ('setLogFilePath' in state) {
+            state.setLogFilePath(event.payload);
+          }
+        } catch (err) {
+          console.error('Error handling log-file-opened event:', err);
+        }
+      });
+      unlistenFns.push(unlistenLogFile);
 
       set({ unlistenFunctions: unlistenFns, listenersRegistered: true });
     } catch (err) {
