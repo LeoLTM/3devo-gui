@@ -16,11 +16,21 @@ function loadInitialDiagramConfig(): DiagramConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_DIAGRAM_CONFIG;
     const parsed = JSON.parse(raw);
+    const series = Array.isArray(parsed.series)
+      ? parsed.series.map((s: DiagramSeriesConfig) => ({
+          ...s,
+          filterZeroSpikes:
+            s.filterZeroSpikes !== undefined
+              ? s.filterZeroSpikes
+              : s.key === 'ft' || s.key === 'ft_avg',
+        }))
+      : DEFAULT_DIAGRAM_CONFIG.series;
+
     return {
       ...DEFAULT_DIAGRAM_CONFIG,
       ...parsed,
       // Ensure arrays are present
-      series: Array.isArray(parsed.series) ? parsed.series : DEFAULT_DIAGRAM_CONFIG.series,
+      series,
       limitLines: Array.isArray(parsed.limitLines) ? parsed.limitLines : DEFAULT_DIAGRAM_CONFIG.limitLines,
     };
   } catch (err) {
@@ -87,6 +97,7 @@ export const createDiagramSlice: StateCreator<
             enabled: true,
             unit: metricDef.unit,
             axis: metricDef.defaultAxis,
+            filterZeroSpikes: metricDef.defaultFilterZeroSpikes ?? false,
           },
         ];
       }

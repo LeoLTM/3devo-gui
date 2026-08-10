@@ -26,8 +26,8 @@ export function TinyChart({ data, field, color, className = '' }: TinyChartProps
     );
   }
 
-  // Take last 50 data points
-  const recentData = data.slice(-50);
+  // ponytail: Take last 100 data points (doubled from 50 for extended timeframe)
+  const recentData = data.slice(-100);
   const values = recentData.map((d) => d[field] as number);
 
   const chartData = {
