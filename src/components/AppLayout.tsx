@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard,
+  LineChart,
   Terminal,
   BarChart3,
   Settings,
@@ -55,6 +56,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const navigationItems: { page: PageType; icon: typeof LayoutDashboard; label: string }[] = [
     { page: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { page: 'diagram', icon: LineChart, label: 'Diagram' },
     { page: 'serial-monitor', icon: Terminal, label: 'Serial Monitor' },
     { page: 'analytics', icon: BarChart3, label: 'Analytics' },
     { page: 'settings', icon: Settings, label: 'Settings' },
