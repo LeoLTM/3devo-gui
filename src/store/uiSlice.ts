@@ -3,7 +3,7 @@ import { StateCreator } from 'zustand';
 /**
  * Available pages in the application
  */
-export type PageType = 'dashboard' | 'serial-monitor' | 'analytics' | 'settings';
+export type PageType = 'dashboard' | 'diagram' | 'serial-monitor' | 'analytics' | 'settings';
 
 /**
  * UI state and actions

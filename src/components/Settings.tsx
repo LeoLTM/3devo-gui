@@ -1,12 +1,21 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Settings as SettingsIcon, FolderOpen } from "lucide-react";
+import {
+  Settings as SettingsIcon,
+  FolderOpen,
+  Database,
+  Trash2,
+  User,
+} from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useStore } from "@/store";
+import { TeableSetupDialog } from "@/components/TeableSetupDialog";
+import { TeableTableSelector } from "@/components/TeableTableSelector";
+import { ModeToggle } from "@/components/ThemeToggle";
 
 export function Settings() {
   const outputPath = useStore((state) => state.outputPath);
@@ -14,9 +23,21 @@ export function Settings() {
   const setOutputPath = useStore((state) => state.setOutputPath);
   const loadConfig = useStore((state) => state.loadConfig);
 
+  // Teable state
+  const isTeableConnected = useStore((s) => s.isTeableConnected);
+  const teableUrl = useStore((s) => s.teableUrl);
+  const teableUserName = useStore((s) => s.teableUserName);
+  const teableUserEmail = useStore((s) => s.teableUserEmail);
+  const teableUserAvatar = useStore((s) => s.teableUserAvatar);
+  const loadTeableConfig = useStore((s) => s.loadTeableConfig);
+  const removeTeableConfig = useStore((s) => s.removeTeableConfig);
+
+  const [teableDialogOpen, setTeableDialogOpen] = useState(false);
+
   // Load config when the settings page mounts (ensures fresh data)
   useEffect(() => {
     loadConfig();
+    loadTeableConfig();
   }, []);
 
   const handleBrowse = async () => {
@@ -84,6 +105,103 @@ export function Settings() {
           </div>
         </div>
       </Card>
+
+      {/* Teable Integration Section */}
+      <Card className="p-6">
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold">Teable Integration</h3>
+            <p className="text-sm text-muted-foreground">
+              Connect to a self-hosted Teable instance to sync experiment data.
+            </p>
+          </div>
+
+          {isTeableConnected ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 rounded-lg border p-4">
+                {/* Avatar */}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted">
+                  {teableUserAvatar ? (
+                    <img
+                      src={teableUserAvatar}
+                      alt={teableUserName ?? "User"}
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-6 w-6 text-muted-foreground" />
+                  )}
+                </div>
+
+                {/* User info */}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium truncate">
+                    {teableUserName ?? "Unknown User"}
+                  </p>
+                  {teableUserEmail && (
+                    <p className="text-sm text-muted-foreground truncate">
+                      {teableUserEmail}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground truncate">
+                    {teableUrl}
+                  </p>
+                </div>
+
+                {/* Status badge */}
+                <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  Connected
+                </span>
+              </div>
+
+              <Button
+                variant="destructive"
+                onClick={removeTeableConfig}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove Integration
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={() => setTeableDialogOpen(true)}
+              variant="outline"
+              className="gap-2"
+            >
+              <Database className="h-4 w-4" />
+              Connect Teable
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      {/* Teable Target Table Section - only shown when connected */}
+      {isTeableConnected && (
+        <Card className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Target Table</h3>
+              <p className="text-sm text-muted-foreground">
+                Select the space, base, and table where experiment data will be
+                recorded.
+              </p>
+            </div>
+
+            <TeableTableSelector />
+          </div>
+        </Card>
+      )}
+
+      {/* Teable Setup Dialog */}
+      <TeableSetupDialog
+        open={teableDialogOpen}
+        onOpenChange={setTeableDialogOpen}
+      />
+      <Separator />
+
+      <ModeToggle />
+
     </div>
   );
 }

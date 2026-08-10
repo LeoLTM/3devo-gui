@@ -225,7 +225,7 @@ mod tests {
     fn test_is_header_line() {
         let header = "Time\tSetT1\tTemp1\tdc1\tErr1\tSetT2\tTemp2\tdc2\tErr2\tSetT3\tTemp3\tdc3\tErr3\tSetT4\tTemp4\tdc4\tErr4\tintT4\tExtCur\tExtPWM\tExtTmp\tUnused\tFAULT\tSetRPM\tRPM\tFT\tFTAVG\tPuller\tMemFree\tStatus\tWndrSpd\tPosSpd\tLength\tVolume\tSpDia\tSpFill\tFsIntT";
         assert!(is_header_line(header));
-        
+
         let data_line = "1\t265\t49.25\t0\t0\t275\t76.25\t0\t0\t265\t68.25\t0\t0\t255\t82.50";
         assert!(!is_header_line(data_line));
     }
@@ -246,8 +246,12 @@ mod tests {
         // Actual data row from production log file
         let line = "1\t265\t49.25\t0\t0\t275\t76.25\t0\t0\t265\t68.25\t0\t0\t255\t82.50\t0\t0\t21.75\t0\t0\t23\t0\t0\t1500\t0\t0\t0\t640\t1689\tIDLE\t271\t0\t0\t0\t105\t0\t21000";
         let result = DataRow::parse(line);
-        assert!(result.is_ok(), "Failed to parse actual log data: {:?}", result.err());
-        
+        assert!(
+            result.is_ok(),
+            "Failed to parse actual log data: {:?}",
+            result.err()
+        );
+
         let data = result.unwrap();
         assert_eq!(data.time, 1.0);
         assert_eq!(data.set_t1, 265.0);

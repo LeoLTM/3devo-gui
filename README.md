@@ -15,8 +15,9 @@ Built with Tauri, React and Typescript in Vite.
 2. Connect your 3devo extruder via USB.
 3. Use the GUI and use the USB port dropdown to select your device. If it does not appear, check the USB cable and click **Refresh**.
 4. Click **Connect** and wait for a few seconds.
-5. Click **Send Wakeup** to initialize the extruder. It will restart the microcontroller in the extruder so it starts sending data.
-6. You can now monitor the extruder using the GUI.
+5. Press the control wheel on the extruder to complete the reset procedure.
+6. Click **Send Wakeup** to initialize the extruder. It will restart the microcontroller in the extruder so it starts sending data.
+7. You can now monitor the extruder using the GUI.
 
 ## Recommended IDE Setup
 
