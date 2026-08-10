@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SerialMonitor } from "@/components/SerialMonitor";
 import { Dashboard } from "@/components/Dashboard";
+import { Diagram } from "@/components/Diagram";
 import { Analytics } from "@/components/Analytics";
 import { Settings } from "@/components/Settings";
 import { AppLayout } from "@/components/AppLayout";
@@ -48,6 +49,8 @@ function App() {
     switch (activePage) {
       case 'dashboard':
         return <Dashboard />;
+      case 'diagram':
+        return <Diagram />;
       case 'serial-monitor':
         return <SerialMonitor />;
       case 'analytics':

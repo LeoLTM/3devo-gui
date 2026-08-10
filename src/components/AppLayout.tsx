@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard,
+  LineChart,
   Terminal,
   BarChart3,
   Settings,
@@ -55,6 +56,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const navigationItems: { page: PageType; icon: typeof LayoutDashboard; label: string }[] = [
     { page: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { page: 'diagram', icon: LineChart, label: 'Diagram' },
     { page: 'serial-monitor', icon: Terminal, label: 'Serial Monitor' },
     { page: 'analytics', icon: BarChart3, label: 'Analytics' },
     { page: 'settings', icon: Settings, label: 'Settings' },
@@ -123,7 +125,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       </Sidebar>
 
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="text-lg font-semibold">
