@@ -10,6 +10,7 @@ export interface MetricDefinition {
   defaultColor: string;
   description: string;
   defaultAxis: 'left' | 'right';
+  defaultFilterZeroSpikes?: boolean;
 }
 
 export interface DiagramSeriesConfig {
@@ -19,6 +20,7 @@ export interface DiagramSeriesConfig {
   enabled: boolean;
   unit: string;
   axis: 'left' | 'right';
+  filterZeroSpikes?: boolean;
 }
 
 export interface DiagramLimitLine {
@@ -34,7 +36,7 @@ export interface DiagramLimitLine {
 export interface DiagramConfig {
   series: DiagramSeriesConfig[];
   limitLines: DiagramLimitLine[];
-  timeWindowSeconds: number; // e.g. 30, 60, 120, 300, 0 (0 = all data)
+  timeWindowSeconds: number; // 60 (1m), 300 (5m), 600 (10m), 0 (all)
   showGrid: boolean;
   showLegend: boolean;
   tension: number; // 0 for straight lines, 0.3 for smooth curves
@@ -55,8 +57,8 @@ export const AVAILABLE_METRICS: MetricDefinition[] = [
   { key: 'fs_int_t', label: 'Filament Sensor Temp', category: 'temperatures', unit: '°C', defaultColor: '#14b8a6', description: 'Filament sensor temperature', defaultAxis: 'left' },
 
   // Filament
-  { key: 'ft', label: 'Filament Diameter', category: 'filament', unit: 'mm', defaultColor: '#3b82f6', description: 'Live filament thickness reading', defaultAxis: 'right' },
-  { key: 'ft_avg', label: 'Filament Diameter (Avg)', category: 'filament', unit: 'mm', defaultColor: '#60a5fa', description: 'Averaged filament thickness', defaultAxis: 'right' },
+  { key: 'ft', label: 'Filament Diameter', category: 'filament', unit: 'mm', defaultColor: '#3b82f6', description: 'Live filament thickness reading', defaultAxis: 'right', defaultFilterZeroSpikes: true },
+  { key: 'ft_avg', label: 'Filament Diameter (Avg)', category: 'filament', unit: 'mm', defaultColor: '#60a5fa', description: 'Averaged filament thickness', defaultAxis: 'right', defaultFilterZeroSpikes: true },
   { key: 'sp_dia', label: 'Spool Diameter', category: 'filament', unit: 'mm', defaultColor: '#8b5cf6', description: 'Calculated spool diameter', defaultAxis: 'right' },
 
   // Motors & Speeds
@@ -80,18 +82,18 @@ export const AVAILABLE_METRICS: MetricDefinition[] = [
 
 export const DEFAULT_DIAGRAM_CONFIG: DiagramConfig = {
   series: [
-    { key: 'temp1', label: 'Heater 1 Actual', color: '#ef4444', enabled: true, unit: '°C', axis: 'left' },
-    { key: 'set_t1', label: 'Heater 1 Target', color: '#f87171', enabled: true, unit: '°C', axis: 'left' },
-    { key: 'temp2', label: 'Heater 2 Actual', color: '#f97316', enabled: true, unit: '°C', axis: 'left' },
-    { key: 'temp3', label: 'Heater 3 Actual', color: '#eab308', enabled: true, unit: '°C', axis: 'left' },
-    { key: 'temp4', label: 'Heater 4 Actual', color: '#84cc16', enabled: true, unit: '°C', axis: 'left' },
-    { key: 'ft', label: 'Filament Diameter', color: '#3b82f6', enabled: true, unit: 'mm', axis: 'right' },
+    { key: 'temp1', label: 'Heater 1 Actual', color: '#ef4444', enabled: true, unit: '°C', axis: 'left', filterZeroSpikes: false },
+    { key: 'set_t1', label: 'Heater 1 Target', color: '#f87171', enabled: true, unit: '°C', axis: 'left', filterZeroSpikes: false },
+    { key: 'temp2', label: 'Heater 2 Actual', color: '#f97316', enabled: true, unit: '°C', axis: 'left', filterZeroSpikes: false },
+    { key: 'temp3', label: 'Heater 3 Actual', color: '#eab308', enabled: true, unit: '°C', axis: 'left', filterZeroSpikes: false },
+    { key: 'temp4', label: 'Heater 4 Actual', color: '#84cc16', enabled: true, unit: '°C', axis: 'left', filterZeroSpikes: false },
+    { key: 'ft', label: 'Filament Diameter', color: '#3b82f6', enabled: true, unit: 'mm', axis: 'right', filterZeroSpikes: true },
   ],
   limitLines: [
     { id: 'default-limit-1', label: 'Target Diameter 1.75mm', value: 1.75, color: '#22c55e', lineStyle: 'dashed', axis: 'right', enabled: true },
     { id: 'default-limit-2', label: 'Max Target Temp 220°C', value: 220, color: '#ef4444', lineStyle: 'dashed', axis: 'left', enabled: false },
   ],
-  timeWindowSeconds: 60, // Last 60s
+  timeWindowSeconds: 60, // Last 1 min
   showGrid: true,
   showLegend: true,
   tension: 0.2,

@@ -34,9 +34,10 @@ const COLOR_PALETTE = [
 interface DiagramConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  container?: HTMLElement | null;
 }
 
-export function DiagramConfigDialog({ open, onOpenChange }: DiagramConfigDialogProps) {
+export function DiagramConfigDialog({ open, onOpenChange, container }: DiagramConfigDialogProps) {
   const [activeTab, setActiveTab] = useState<'series' | 'limits' | 'display'>('series');
 
   const diagramConfig = useStore((state) => state.diagramConfig);
@@ -79,7 +80,10 @@ export function DiagramConfigDialog({ open, onOpenChange }: DiagramConfigDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent
+        container={container}
+        className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
+      >
         <DialogHeader className="p-4 pb-2 border-b">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Sliders className="h-5 w-5 text-primary" />
@@ -121,7 +125,7 @@ export function DiagramConfigDialog({ open, onOpenChange }: DiagramConfigDialogP
           {activeTab === 'series' && (
             <div className="space-y-6">
               <div className="text-xs text-muted-foreground">
-                Select which extruder metrics to plot on the live diagram. Choose custom line colors and assign to the Left (Y) or Right (Y1) axis for automatic scaling.
+                Select which extruder metrics to plot on the live diagram. Toggle 0-spike filtering to prevent sudden sensor 0-drops from distorting scale.
               </div>
 
               {categories.map((cat) => {
@@ -137,6 +141,7 @@ export function DiagramConfigDialog({ open, onOpenChange }: DiagramConfigDialogP
                         const isEnabled = activeSeries ? activeSeries.enabled : false;
                         const currentColor = activeSeries?.color || metric.defaultColor;
                         const currentAxis = activeSeries?.axis || metric.defaultAxis;
+                        const isFilteringZeros = activeSeries?.filterZeroSpikes ?? (metric.defaultFilterZeroSpikes ?? false);
 
                         return (
                           <div
@@ -145,7 +150,7 @@ export function DiagramConfigDialog({ open, onOpenChange }: DiagramConfigDialogP
                               isEnabled ? 'bg-accent/40 border-primary/40' : 'bg-card border-border hover:bg-accent/20'
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                            <div className="flex items-center gap-2 min-w-0 pr-2">
                               <Checkbox
                                 id={`metric-${metric.key}`}
                                 checked={isEnabled}
@@ -164,7 +169,25 @@ export function DiagramConfigDialog({ open, onOpenChange }: DiagramConfigDialogP
                             </div>
 
                             {isEnabled && (
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {/* Filter 0 spikes button */}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateSeries(metric.key, {
+                                      filterZeroSpikes: !isFilteringZeros,
+                                    })
+                                  }
+                                  className={`text-[10px] px-1.5 py-0.5 rounded font-mono border transition-colors ${
+                                    isFilteringZeros
+                                      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 font-semibold'
+                                      : 'bg-muted/60 text-muted-foreground hover:bg-muted border-border'
+                                  }`}
+                                  title="Filter out 0-value glitch spikes so they don't break graph scale"
+                                >
+                                  {isFilteringZeros ? 'Filter 0s' : 'No filter'}
+                                </button>
+
                                 {/* Axis selector */}
                                 <button
                                   type="button"
@@ -176,7 +199,7 @@ export function DiagramConfigDialog({ open, onOpenChange }: DiagramConfigDialogP
                                   className="text-[10px] px-1.5 py-0.5 rounded font-mono border bg-muted/60 hover:bg-muted text-muted-foreground"
                                   title="Toggle Y axis (Left / Right)"
                                 >
-                                  {currentAxis === 'left' ? 'Axis: L' : 'Axis: R'}
+                                  {currentAxis === 'left' ? 'L' : 'R'}
                                 </button>
 
                                 {/* Color picker preview */}

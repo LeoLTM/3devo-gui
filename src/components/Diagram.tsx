@@ -28,6 +28,8 @@ import {
   WifiOff,
   Maximize2,
   Minimize2,
+  X,
+  Plus,
 } from 'lucide-react';
 import { DataRow } from '@/types/extruder';
 
@@ -58,6 +60,17 @@ export function Diagram() {
   const toggleDiagramPause = useStore((state) => state.toggleDiagramPause);
   const setTimeWindowSeconds = useStore((state) => state.setTimeWindowSeconds);
   const toggleSeries = useStore((state) => state.toggleSeries);
+
+  // Sync fullscreen state if user exits via Escape key
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   // Freeze data snapshot when paused
   const pausedDataRef = useRef<DataRow[]>([]);
@@ -116,14 +129,17 @@ export function Diagram() {
     return units.length > 0 ? units.join(' / ') : 'Value';
   }, [enabledSeries]);
 
-  // Chart datasets
+  // Chart datasets with zero-spike filter support
   const chartData = useMemo(() => {
     const labels = filteredData.map((d) => `${d.time.toFixed(1)}s`);
 
     const datasets = enabledSeries.map((s) => {
       const dataPoints = filteredData.map((d) => {
         const val = d[s.key];
-        return typeof val === 'number' ? val : null;
+        if (typeof val !== 'number') return null;
+        // Filter out zero-spikes if configured for this metric
+        if (s.filterZeroSpikes && val === 0) return null;
+        return val;
       });
 
       return {
@@ -137,6 +153,7 @@ export function Diagram() {
         pointRadius: filteredData.length > 100 ? 0 : 2,
         pointHoverRadius: 5,
         fill: false,
+        spanGaps: true, // ponytail: smooth interpolation across filtered 0-spikes
       };
     });
 
@@ -150,11 +167,15 @@ export function Diagram() {
     diagramConfig.limitLines
       .filter((l) => l.enabled)
       .forEach((line) => {
+        const scale = line.axis === 'right' ? 'y1' : 'y';
         ann[`limit_${line.id}`] = {
           type: 'line' as const,
+          drawTime: 'afterDatasetsDraw' as const,
+          scaleID: scale,
+          value: line.value,
+          yScaleID: scale,
           yMin: line.value,
           yMax: line.value,
-          scaleID: line.axis === 'right' ? 'y1' : 'y',
           borderColor: line.color,
           borderWidth: 2,
           borderDash: line.lineStyle === 'dashed' ? [6, 4] : [],
@@ -271,11 +292,11 @@ export function Diagram() {
     rightUnitLabel,
   ]);
 
+  // Only 1 min, 5 min, 10 min, All
   const timeWindowPresets = [
-    { label: '30s', value: 30 },
-    { label: '1m', value: 60 },
-    { label: '2m', value: 120 },
-    { label: '5m', value: 300 },
+    { label: '1 min', value: 60 },
+    { label: '5 min', value: 300 },
+    { label: '10 min', value: 600 },
     { label: 'All', value: 0 },
   ];
 
@@ -293,12 +314,12 @@ export function Diagram() {
   return (
     <div
       ref={containerRef}
-      className={`w-full max-w-7xl mx-auto flex flex-col gap-3 transition-all ${
+      className={`w-full max-w-7xl mx-auto flex flex-col gap-2.5 min-h-0 h-full flex-1 overflow-hidden ${
         isFullscreen ? 'p-4 bg-background fixed inset-0 z-50 h-screen max-w-none' : ''
       }`}
     >
       {/* Top Toolbar */}
-      <Card className="p-3 shadow-xs">
+      <Card className="p-3 shadow-xs shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Status & Live Info */}
           <div className="flex items-center gap-3">
@@ -407,36 +428,52 @@ export function Diagram() {
           </div>
         </div>
 
-        {/* Metric Quick Toggles Bar */}
+        {/* Metric Quick Badges Bar - Only show active metrics */}
         <div className="mt-2.5 pt-2.5 border-t flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           <span className="text-muted-foreground text-[11px] shrink-0 mr-1 font-medium">
             Active Metrics:
           </span>
-          {diagramConfig.series.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => toggleSeries(s.key)}
-              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-medium shrink-0 transition-all ${
-                s.enabled
-                  ? 'bg-accent text-accent-foreground border-primary/40 shadow-xs'
-                  : 'bg-muted/30 text-muted-foreground opacity-50 border-transparent hover:opacity-80'
-              }`}
-            >
+          {enabledSeries.length === 0 ? (
+            <span className="text-muted-foreground text-[11px] italic">
+              None active. Click Configure to add metrics.
+            </span>
+          ) : (
+            enabledSeries.map((s) => (
               <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: s.color }}
-              />
-              <span>{s.label}</span>
-              {s.enabled && (
+                key={s.key}
+                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-primary/30 bg-accent text-accent-foreground text-[11px] font-medium shrink-0 shadow-xs"
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: s.color }}
+                />
+                <span>{s.label}</span>
                 <span className="text-[10px] opacity-70">({s.unit})</span>
-              )}
-            </button>
-          ))}
+                <button
+                  type="button"
+                  onClick={() => toggleSeries(s.key)}
+                  className="ml-0.5 hover:text-destructive opacity-60 hover:opacity-100 transition-opacity"
+                  title={`Disable ${s.label}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfigOpen(true)}
+            className="h-6 px-2 text-[11px] gap-1 shrink-0 ml-1 text-muted-foreground hover:text-foreground"
+          >
+            <Plus className="h-3 w-3" />
+            Add
+          </Button>
         </div>
       </Card>
 
       {/* Main Big Chart Card */}
-      <Card className="p-4 flex-1 flex flex-col min-h-[520px] h-[calc(100vh-230px)] shadow-xs relative">
+      <Card className="p-3 sm:p-4 flex-1 min-h-0 flex flex-col shadow-xs relative overflow-hidden">
         {filteredData.length < 2 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-muted-foreground gap-3">
             <div className="p-4 rounded-full bg-muted/50">
@@ -465,14 +502,19 @@ export function Diagram() {
             )}
           </div>
         ) : (
-          <div className="w-full h-full flex-1 relative">
-            <Line data={chartData} options={options} />
+          <div className="w-full h-full flex-1 relative min-h-0">
+            <Line data={chartData} options={options} plugins={[annotationPlugin]} />
           </div>
         )}
       </Card>
 
       {/* Configuration Dialog */}
-      <DiagramConfigDialog open={configOpen} onOpenChange={setConfigOpen} />
+      <DiagramConfigDialog
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        container={containerRef.current}
+      />
     </div>
   );
 }
+
