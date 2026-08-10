@@ -154,5 +154,5 @@ export function formatPercentage(value: number): string {
  * Helper function to format RPM
  */
 export function formatRPM(rpm: number): string {
-  return `${Math.round(rpm)} RPM`;
+  return `${rpm.toFixed(1)} RPM`;
 }

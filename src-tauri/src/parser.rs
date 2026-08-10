@@ -170,10 +170,10 @@ impl DataRow {
             ext_tmp: parse_field(fields[20], 20, "ExtTmp")?,
             unused: parse_field(fields[21], 21, "Unused")?,
             fault: parse_field(fields[22], 22, "FAULT")?,
-            set_rpm: parse_field(fields[23], 23, "SetRPM")?,
-            rpm: parse_field(fields[24], 24, "RPM")?,
-            ft: parse_field(fields[25], 25, "FT")?,
-            ft_avg: parse_field(fields[26], 26, "FTAVG")?,
+            set_rpm: parse_field::<f64>(fields[23], 23, "SetRPM")? / 100.0,
+            rpm: parse_field::<f64>(fields[24], 24, "RPM")? / 100.0,
+            ft: parse_field::<f64>(fields[25], 25, "FT")? / 1000.0,
+            ft_avg: parse_field::<f64>(fields[26], 26, "FTAVG")? / 1000.0,
             puller: parse_field(fields[27], 27, "Puller")?,
             mem_free: parse_field(fields[28], 28, "MemFree")?,
             status: SystemStatus::from(fields[29]),
@@ -243,8 +243,8 @@ mod tests {
 
     #[test]
     fn test_parse_actual_log_data() {
-        // Actual data row from production log file
-        let line = "1\t265\t49.25\t0\t0\t275\t76.25\t0\t0\t265\t68.25\t0\t0\t255\t82.50\t0\t0\t21.75\t0\t0\t23\t0\t0\t1500\t0\t0\t0\t640\t1689\tIDLE\t271\t0\t0\t0\t105\t0\t21000";
+        // Actual data row from production log file (1500 SetRPM -> 15.0 RPM, 1750 FT -> 1.750 mm)
+        let line = "1\t265\t49.25\t0\t0\t275\t76.25\t0\t0\t265\t68.25\t0\t0\t255\t82.50\t0\t0\t21.75\t0\t0\t23\t0\t0\t1500\t320\t1750\t1748\t640\t1689\tIDLE\t271\t0\t0\t0\t105\t0\t21000";
         let result = DataRow::parse(line);
         assert!(
             result.is_ok(),
@@ -266,10 +266,10 @@ mod tests {
         assert_eq!(data.ext_tmp, 23.0);
         assert_eq!(data.unused, 0);
         assert_eq!(data.fault, 0);
-        assert_eq!(data.set_rpm, 1500.0);
-        assert_eq!(data.rpm, 0.0);
-        assert_eq!(data.ft, 0.0);
-        assert_eq!(data.ft_avg, 0.0);
+        assert_eq!(data.set_rpm, 15.0);
+        assert_eq!(data.rpm, 3.2);
+        assert_eq!(data.ft, 1.750);
+        assert_eq!(data.ft_avg, 1.748);
         assert_eq!(data.puller, 640);
         assert_eq!(data.mem_free, 1689);
         assert_eq!(data.status, SystemStatus::IDLE);
