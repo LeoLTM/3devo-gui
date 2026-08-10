@@ -50,6 +50,16 @@ function formatElapsed(seconds: number): string {
     .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
+function getTimestampPrefix(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}_${hours}-${minutes}`;
+}
+
 export function ExperimentWidget() {
   const experimentStatus = useStore((s) => s.experimentStatus);
   const experimentStartTime = useStore((s) => s.experimentStartTime);
@@ -107,9 +117,18 @@ export function ExperimentWidget() {
     setFormError(null);
   }, []);
 
+  const handleOpenDialog = () => {
+    if (!formExperimentName) {
+      setFormExperimentName(`${getTimestampPrefix()}-Run`);
+    }
+    setDialogOpen(true);
+  };
+
   const handleDialogChange = (open: boolean) => {
     if (!open) {
       resetForm();
+    } else if (!formExperimentName) {
+      setFormExperimentName(`${getTimestampPrefix()}-Run`);
     }
     setDialogOpen(open);
   };
@@ -262,7 +281,7 @@ export function ExperimentWidget() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setDialogOpen(true)}
+              onClick={handleOpenDialog}
               disabled={!canStart}
               className="gap-1.5"
             >
@@ -299,15 +318,27 @@ export function ExperimentWidget() {
           <div className="space-y-4 py-2">
             {/* Experiment name — first field */}
             <div className="space-y-1.5">
-              <Label htmlFor="exp-name">Experiment Name *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="exp-name">Experiment Name *</Label>
+                <button
+                  type="button"
+                  onClick={() => setFormExperimentName(`${getTimestampPrefix()}-Run`)}
+                  className="text-[11px] text-primary hover:underline font-medium"
+                >
+                  Insert Timestamp
+                </button>
+              </div>
               <Input
                 id="exp-name"
-                placeholder="e.g. PLA-Black-Run-017"
+                placeholder="e.g. 2026-08-10_21-52-PLA-Run"
                 value={formExperimentName}
                 onChange={(e) => setFormExperimentName(e.target.value)}
                 disabled={isExperimentLoading}
                 autoFocus
               />
+              <p className="text-[11px] text-muted-foreground">
+                Custom experiment name format: &lt;date-time&gt;-&lt;name&gt;
+              </p>
             </div>
 
             <Separator />
