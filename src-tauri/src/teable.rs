@@ -17,6 +17,16 @@ pub struct TeableUser {
     pub avatar: Option<String>,
 }
 
+fn build_teable_client(url: &str, token: &str) -> Result<TeableClient, String> {
+    TeableClient::builder()
+        .base_url(format!("{}/api", url.trim_end_matches('/')))
+        .map_err(|e| format!("Failed to build Teable client: {}", e))?
+        .token(token.to_owned())
+        .danger_accept_invalid_certs(true)
+        .build()
+        .map_err(|e| format!("Failed to build Teable client: {}", e))
+}
+
 /// Space entry from `GET /api/space`.
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
@@ -30,19 +40,10 @@ struct SpaceEntry {
 /// Strategy:
 /// 1. Call `GET /api/space` with the PAT to verify the token is valid
 ///    (this endpoint works with Personal Access Tokens).
-/// 2. Optionally call `GET /api/auth/user/me` to fetch user profile info.
-///    If that returns 403 (common with scoped PATs), we still consider the
-///    connection successful and return placeholder user info.
+/// 2. Call `GET /api/auth/user/me` to fetch user profile info.
 #[tauri::command]
 pub async fn test_teable_connection(url: String, token: String) -> Result<TeableUser, String> {
-    let url = url.trim_end_matches('/').to_string();
-    let client = TeableClient::builder()
-        .base_url(format!("{}/api", url))
-        .map_err(|e| e.to_string())?
-        .token(token)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = build_teable_client(&url, &token)?;
 
     // Step 1: Fetch spaces
     client
@@ -137,13 +138,7 @@ pub async fn list_teable_spaces() -> Result<Vec<TeableSpace>, String> {
     let url = cfg.teable_url.ok_or("Teable not configured")?;
     let token = cfg.teable_token.ok_or("Teable token not found")?;
 
-    let client = TeableClient::builder()
-        .base_url(format!("{}/api", url))
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?
-        .token(token)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?;
+    let client = build_teable_client(&url, &token)?;
 
     let spaces = client
         .spaces()
@@ -167,13 +162,7 @@ pub async fn list_teable_bases(space_id: String) -> Result<Vec<TeableBase>, Stri
     let url = cfg.teable_url.ok_or("Teable not configured")?;
     let token = cfg.teable_token.ok_or("Teable token not found")?;
 
-    let client = TeableClient::builder()
-        .base_url(format!("{}/api", url))
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?
-        .token(token)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?;
+    let client = build_teable_client(&url, &token)?;
 
     let bases = client
         .bases()
@@ -198,13 +187,7 @@ pub async fn list_teable_tables(base_id: String) -> Result<Vec<TeableTable>, Str
     let url = cfg.teable_url.ok_or("Teable not configured")?;
     let token = cfg.teable_token.ok_or("Teable token not found")?;
 
-    let client = TeableClient::builder()
-        .base_url(format!("{}/api", url))
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?
-        .token(token)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?;
+    let client = build_teable_client(&url, &token)?;
 
     let tables = client
         .tables()
@@ -241,6 +224,32 @@ pub fn save_teable_target(
 pub struct TeableRecord {
     pub id: String,
     pub fields: serde_json::Value,
+}
+
+async fn resolve_record_fields(
+    client: &TeableClient,
+    table_id: &str,
+    fields: &serde_json::Value,
+) -> Result<HashMap<String, serde_json::Value>, String> {
+    let input_fields = fields
+        .as_object()
+        .ok_or("Record fields must be a JSON object")?;
+    let table_fields = client
+        .fields()
+        .list_fields(table_id)
+        .await
+        .map_err(|e| format!("Failed to fetch fields: {}", e))?;
+    let mut record_fields = HashMap::with_capacity(input_fields.len());
+
+    for (field_name, value) in input_fields {
+        let field = table_fields
+            .iter()
+            .find(|field| field.name == *field_name)
+            .ok_or_else(|| format!("Teable field not found: {}", field_name))?;
+        record_fields.insert(field.id.clone(), value.clone());
+    }
+
+    Ok(record_fields)
 }
 
 
@@ -317,13 +326,7 @@ pub async fn ensure_teable_fields() -> Result<Vec<String>, String> {
     let token = cfg.teable_token.ok_or("Teable token not found")?;
     let table_id = cfg.teable_table_id.ok_or("No Teable table selected")?;
 
-    let client = TeableClient::builder()
-        .base_url(format!("{}/api", url))
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?
-        .token(token)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?;
+    let client = build_teable_client(&url, &token)?;
 
     let fields = client
         .fields()
@@ -359,38 +362,10 @@ pub async fn create_teable_record(fields: serde_json::Value) -> Result<TeableRec
     let token = cfg.teable_token.ok_or("Teable token not found")?;
     let table_id = cfg.teable_table_id.ok_or("No Teable table selected")?;
 
-    let client = TeableClient::builder()
-        .base_url(format!("{}/api", url))
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?
-        .token(token)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?;
+    let client = build_teable_client(&url, &token)?;
 
     eprintln!("[TEABLE] Creating record in table {}", table_id);
-    eprintln!(
-        "[TEABLE] Fields: {}",
-        serde_json::to_string_pretty(&fields).unwrap_or_default()
-    );
-
-    let table_fields = client
-        .fields()
-        .list_fields(&table_id)
-        .await
-        .map_err(|e| format!("Failed to fetch fields: {}", e))?;
-
-    let input_fields = fields
-        .as_object()
-        .ok_or("Record fields must be a JSON object")?;
-    let mut record_fields = HashMap::with_capacity(input_fields.len());
-
-    for (field_name, value) in input_fields {
-        let field = table_fields
-            .iter()
-            .find(|field| field.name == *field_name)
-            .ok_or_else(|| format!("Teable field not found: {}", field_name))?;
-        record_fields.insert(field.id.clone(), value.clone());
-    }
+    let record_fields = resolve_record_fields(&client, &table_id, &fields).await?;
 
     let created_response = client
         .records()
@@ -439,41 +414,13 @@ pub async fn update_teable_record(
     let token = cfg.teable_token.ok_or("Teable token not found")?;
     let table_id = cfg.teable_table_id.ok_or("No Teable table selected")?;
 
-    let client = TeableClient::builder()
-        .base_url(format!("{}/api", url))
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?
-        .token(token)
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Failed to build Teable client: {}", e))?;
+    let client = build_teable_client(&url, &token)?;
 
     eprintln!(
         "[TEABLE] Updating record {} in table {}",
         record_id, table_id
     );
-    eprintln!(
-        "[TEABLE] Fields: {}",
-        serde_json::to_string_pretty(&fields).unwrap_or_default()
-    );
-
-    let table_fields = client
-        .fields()
-        .list_fields(&table_id)
-        .await
-        .map_err(|e| format!("Failed to fetch fields: {}", e))?;
-
-    let input_fields = fields
-        .as_object()
-        .ok_or("Record fields must be a JSON object")?;
-    let mut record_fields = HashMap::with_capacity(input_fields.len());
-
-    for (field_name, value) in input_fields {
-        let field = table_fields
-            .iter()
-            .find(|field| field.name == *field_name)
-            .ok_or_else(|| format!("Teable field not found: {}", field_name))?;
-        record_fields.insert(field.id.clone(), value.clone());
-    }
+    let record_fields = resolve_record_fields(&client, &table_id, &fields).await?;
 
     let record = client
         .records()
