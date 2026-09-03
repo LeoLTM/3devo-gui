@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use teable::{
     client::TeableClient,
@@ -9,7 +9,7 @@ use teable::{
 use crate::config;
 
 /// User information returned to the frontend after a successful connection test.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize)]
 pub struct TeableUser {
     pub id: String,
     pub name: String,
@@ -25,14 +25,6 @@ fn build_teable_client(url: &str, token: &str) -> Result<TeableClient, String> {
         .danger_accept_invalid_certs(true)
         .build()
         .map_err(|e| format!("Failed to build Teable client: {}", e))
-}
-
-/// Space entry from `GET /api/space`.
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct SpaceEntry {
-    id: String,
-    name: String,
 }
 
 /// Test a connection to a Teable instance.
@@ -108,14 +100,14 @@ pub fn remove_teable_config() -> Result<config::AppConfig, String> {
 }
 
 /// Space entry from the Teable API.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize)]
 pub struct TeableSpace {
     pub id: String,
     pub name: String,
 }
 
 /// Base entry from the Teable API.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TeableBase {
     pub id: String,
@@ -124,7 +116,7 @@ pub struct TeableBase {
 }
 
 /// Table entry from the Teable API.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TeableTable {
     pub id: String,
@@ -220,7 +212,7 @@ pub fn save_teable_target(
 }
 
 /// Response from creating/updating a Teable record.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize)]
 pub struct TeableRecord {
     pub id: String,
     pub fields: serde_json::Value,
