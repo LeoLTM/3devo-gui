@@ -22,8 +22,15 @@ pub struct TeableUser {
 }
 
 fn build_teable_client(url: &str, token: &str) -> Result<TeableClient, String> {
+    let trimmed = url.trim().trim_end_matches('/');
+    let base_url = if trimmed.ends_with("/api") {
+        format!("{}/", trimmed)
+    } else {
+        format!("{}/api/", trimmed)
+    };
+
     TeableClient::builder()
-        .base_url(format!("{}/api", url.trim_end_matches('/')))
+        .base_url(base_url)
         .map_err(|e| format!("Failed to build Teable client: {}", e))?
         .token(token.to_owned())
         .danger_accept_invalid_certs(true)
@@ -36,29 +43,33 @@ fn build_teable_client(url: &str, token: &str) -> Result<TeableClient, String> {
 /// Strategy:
 /// 1. Call `GET /api/space` with the PAT to verify the token is valid
 ///    (this endpoint works with Personal Access Tokens).
-/// 2. Call `GET /api/auth/user/me` to fetch user profile info.
+/// 2. Call `GET /api/auth/user/me` to fetch user profile info. If that fails
+///    (e.g. PAT lacks user scope), fall back to a default profile.
 #[tauri::command]
 pub async fn test_teable_connection(url: String, token: String) -> Result<TeableUser, String> {
     let client = build_teable_client(&url, &token)?;
 
-    // Step 1: Fetch spaces
+    // Step 1: Verify token by fetching spaces
     client
         .spaces()
         .get_space_list()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to connect to Teable instance: {}", e))?;
 
-    let user_result = client
-        .auth()
-        .get_user_me()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let user = TeableUser {
-        id: user_result.id,
-        name: user_result.name,
-        email: user_result.email.unwrap_or_default(),
-        avatar: user_result.avatar,
+    // Step 2: Try to fetch user info
+    let user = match client.auth().get_user_me().await {
+        Ok(user_result) => TeableUser {
+            id: user_result.id,
+            name: user_result.name,
+            email: user_result.email.unwrap_or_default(),
+            avatar: user_result.avatar,
+        },
+        Err(e) => {
+            return Err(format!(
+                "[TEABLE] Could not fetch user profile ({}). Using fallback profile.",
+                e
+            ));
+        }
     };
 
     eprintln!(
