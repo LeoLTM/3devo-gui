@@ -4769,9 +4769,9 @@ dependencies = [
 
 [[package]]
 name = "teable"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0603228959b7639d24aeb80ee11b364b59aaeb810c548d1758670a8678c4e9c"
+checksum = "dfde41635935d060769f05e7ee6d320cf414449a83db22b41ffe21791b90c2f9"
 dependencies = [
  "maybe-async",
  "maybe-async-cfg",
